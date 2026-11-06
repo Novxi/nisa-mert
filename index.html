@@ -19,8 +19,23 @@
   body { display: flex; align-items: center; justify-content: center; }
   canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; }
   video { position: relative; display: block; width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; background: transparent; }
+  #ithaf, #sayac {
+    position: fixed; z-index: 1; pointer-events: none; white-space: pre;
+    font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  }
+  #ithaf {
+    left: max(14px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
+    font-size: clamp(13px, 2.2vmin, 24px); font-weight: 700; color: #eeccd0;
+  }
+  #ithaf b { color: #f44260; }
+  #sayac {
+    right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top));
+    font-size: clamp(11px, 1.7vmin, 18px); color: #d64e68;
+    display: flex; align-items: center; gap: .5em;
+  }
+  #sayac i { width: .4em; height: .4em; border-radius: 50%; background: #e84868; }
   button {
-    z-index: 1;
+    z-index: 2;
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     padding: 14px 30px; font: 18px Menlo, Consolas, monospace; color: #eeccd0;
     background: rgba(0, 0, 0, .75); border: 1px solid #f44260; border-radius: 28px; cursor: pointer;
@@ -31,6 +46,8 @@
 <body>
 <canvas id="gok" aria-hidden="true"></canvas>
 <video id="v" src="gul.mp4" autoplay muted playsinline webkit-playsinline preload="auto" aria-label="Harflerden açan gül, N harfi ve kalp"></video>
+<div id="ithaf">nisa <b>&lt;3</b> mert</div>
+<div id="sayac" aria-hidden="true"><i id="nokta"></i><span id="sure">t 00.00s</span></div>
 <button id="b" type="button" hidden>izle</button>
 <script>
   var v = document.getElementById("v");
@@ -64,6 +81,7 @@
   (function () {
     var gok = document.getElementById("gok");
     var c = gok.getContext("2d");
+    var sure = document.getElementById("sure"), nokta = document.getElementById("nokta");
     var VIDEO_G = 1440, VIDEO_Y = 1400, HUCRE_G = 8, HUCRE_Y = 14;
     var HARFLER = ".:'`+*-|/\\";
     var TONLAR = ["#ffffff", "#ffb8b8", "#bdd6ff"];
@@ -118,6 +136,17 @@
       hc.fillStyle = d;
       hc.fillRect(0, 0, r * 2, r * 2);
 
+      // Köşe yazılarının altına yıldız düşmez
+      var yazilar = ["ithaf", "sayac"].map(function (ad) {
+        var k = document.getElementById(ad).getBoundingClientRect();
+        return [(k.left - 8) * oran, (k.top - 6) * oran, (k.right + 8) * oran, (k.bottom + 6) * oran];
+      });
+      var yaziAltinda = function (x, y) {
+        return yazilar.some(function (k) {
+          return x + hg > k[0] && x < k[2] && y + hy > k[1] && y < k[3];
+        });
+      };
+
       var sutun = Math.ceil(gok.width / hg), satir = Math.ceil(gok.height / hy);
       var hucre = sutun * satir, rnd = rastgele(20261);
       var aralik = function (a, b) { return a + (b - a) * rnd(); };
@@ -137,6 +166,7 @@
         };
         // Videonun içine düşenler atlanır: orada videonun kendi yıldızları var
         if (y.x + hg > x0 && y.x < x0 + vg && y.y + hy > y0 && y.y < y0 + vy) continue;
+        if (yaziAltinda(y.x, y.y)) continue;
         yildizlar.push(y);
         if (!buyuk && !orta) continue;
         var uz = Math.floor(buyuk ? aralik(3, 7) : aralik(2, 5));
@@ -145,6 +175,7 @@
          [-1, 1, 8, kosegen], [1, -1, 8, kosegen], [-1, -1, 9, kosegen], [1, 1, 9, kosegen]].forEach(function (o) {
           for (var i = 1; i <= o[3]; i++) {
             var dus = Math.pow(1 - i / (o[3] + 1), 1.6);
+            if (yaziAltinda(y.x + o[1] * i * hg, y.y + o[0] * i * hy)) continue;
             isinlar.push({
               x: y.x + o[1] * i * hg, y: y.y + o[0] * i * hy, h: o[2], s: y,
               t: buyuk ? y.b * 0.42 * dus : 0, g: 0.75 * dus
@@ -159,6 +190,12 @@
       if (ms - sonCizim < 32) return; // saniyede 30 kare yeterli
       sonCizim = ms;
       var t = ms / 1000, i, y, a;
+
+      // Sağ üst köşedeki sayaç videonun zamanını gösterir
+      var sn = v.currentTime;
+      sure.textContent = "t " + (sn < 10 ? "0" : "") + sn.toFixed(2) + "s";
+      nokta.style.visibility = Math.sin(sn * 3) > -0.5 ? "visible" : "hidden";
+
       c.clearRect(0, 0, gok.width, gok.height);
       c.globalCompositeOperation = "lighter";
       for (i = 0; i < yildizlar.length; i++) {
