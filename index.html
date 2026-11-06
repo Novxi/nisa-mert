@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>nisa &lt;3 mert</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90' fill='%23f44260'%3E%E2%99%A5%3C/text%3E%3C/svg%3E">
+<meta property="og:title" content="nisa <3 mert">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://novxi.github.io/nisa-mert/">
+<meta property="og:image" content="https://novxi.github.io/nisa-mert/onizleme.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  video { display: block; width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; background: #000; }
+  button {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    padding: 14px 30px; font: 18px Menlo, Consolas, monospace; color: #eeccd0;
+    background: rgba(0, 0, 0, .75); border: 1px solid #f44260; border-radius: 28px; cursor: pointer;
+  }
+  button[hidden] { display: none; }
+</style>
+</head>
+<body>
+<video id="v" src="gul.mp4" autoplay muted playsinline webkit-playsinline preload="auto" aria-label="Harflerden açan gül, N harfi ve kalp"></video>
+<button id="b" type="button" hidden>izle</button>
+<script>
+  var v = document.getElementById("v");
+  var b = document.getElementById("b");
+
+  function oynat() {
+    b.hidden = true;
+    var s = v.play();
+    if (s && s.catch) {
+      // Tarayıcı kendiliğinden başlatmaya izin vermediyse düğme çıkar
+      s.catch(function () { b.textContent = "izle"; b.hidden = false; });
+    }
+  }
+
+  b.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (v.ended) v.currentTime = 0;
+    oynat();
+  });
+
+  // Video bitince son karede durur, "tekrar izle" çıkar
+  v.addEventListener("ended", function () {
+    b.textContent = "tekrar izle";
+    b.hidden = false;
+  });
+
+  oynat();
+</script>
+</body>
+</html>
