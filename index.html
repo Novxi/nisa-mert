@@ -17,8 +17,10 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; }
-  video { display: block; width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; background: #000; }
+  canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  video { position: relative; display: block; width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; background: transparent; }
   button {
+    z-index: 1;
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     padding: 14px 30px; font: 18px Menlo, Consolas, monospace; color: #eeccd0;
     background: rgba(0, 0, 0, .75); border: 1px solid #f44260; border-radius: 28px; cursor: pointer;
@@ -27,6 +29,7 @@
 </style>
 </head>
 <body>
+<canvas id="gok" aria-hidden="true"></canvas>
 <video id="v" src="gul.mp4" autoplay muted playsinline webkit-playsinline preload="auto" aria-label="Harflerden açan gül, N harfi ve kalp"></video>
 <button id="b" type="button" hidden>izle</button>
 <script>
@@ -55,6 +58,143 @@
   });
 
   oynat();
+
+  // Videonun dışında kalan boşluğu dolduran yıldızlar. Videodaki yıldızlarla aynı harfler,
+  // aynı boyut ve aynı parlama ritmi; yalnız videonun dışına çizilir.
+  (function () {
+    var gok = document.getElementById("gok");
+    var c = gok.getContext("2d");
+    var VIDEO_G = 1440, VIDEO_Y = 1400, HUCRE_G = 8, HUCRE_Y = 14;
+    var HARFLER = ".:'`+*-|/\\";
+    var TONLAR = ["#ffffff", "#ffb8b8", "#bdd6ff"];
+    var yildizlar, isinlar, atlas, hale, hg, hy, ag, ay;
+
+    function rastgele(tohum) {
+      return function () {
+        tohum = (tohum + 0x6d2b79f5) | 0;
+        var t = Math.imul(tohum ^ (tohum >>> 15), 1 | tohum);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function kur() {
+      var oran = Math.min(window.devicePixelRatio || 1, 2);
+      gok.width = Math.round(innerWidth * oran);
+      gok.height = Math.round(innerHeight * oran);
+
+      // Videonun ekrandaki yeri ve o ölçekte bir hücrenin boyutu
+      var s = Math.min(v.clientWidth / VIDEO_G, v.clientHeight / VIDEO_Y) * oran;
+      var vg = VIDEO_G * s, vy = VIDEO_Y * s;
+      var x0 = (gok.width - vg) / 2, y0 = (gok.height - vy) / 2;
+      hg = Math.max(HUCRE_G * s, 3);
+      hy = Math.max(HUCRE_Y * s, 5);
+      ag = Math.ceil(hg) + 1;
+      ay = Math.ceil(hy) + 1;
+
+      // Her ton için harf şeridi
+      atlas = TONLAR.map(function (ton) {
+        var a = document.createElement("canvas");
+        a.width = ag * HARFLER.length;
+        a.height = ay;
+        var x = a.getContext("2d");
+        x.font = Math.round(hy * 0.95) + "px Menlo, Consolas, 'DejaVu Sans Mono', monospace";
+        x.textAlign = "center";
+        x.textBaseline = "middle";
+        x.fillStyle = ton;
+        for (var i = 0; i < HARFLER.length; i++) x.fillText(HARFLER[i], (i + 0.5) * ag, ay / 2);
+        return a;
+      });
+
+      // Parlayan yıldızın çevresindeki yumuşak ışık
+      var r = Math.ceil(hy * 1.3);
+      hale = document.createElement("canvas");
+      hale.width = hale.height = r * 2;
+      var hc = hale.getContext("2d");
+      var d = hc.createRadialGradient(r, r, 0, r, r, r);
+      d.addColorStop(0, "rgba(255,255,255,1)");
+      d.addColorStop(0.35, "rgba(255,255,255,.28)");
+      d.addColorStop(1, "rgba(255,255,255,0)");
+      hc.fillStyle = d;
+      hc.fillRect(0, 0, r * 2, r * 2);
+
+      var sutun = Math.ceil(gok.width / hg), satir = Math.ceil(gok.height / hy);
+      var hucre = sutun * satir, rnd = rastgele(20261);
+      var aralik = function (a, b) { return a + (b - a) * rnd(); };
+      yildizlar = [];
+      isinlar = [];
+      var n = Math.min(Math.round(hucre * 0.0303), 2500);
+      for (var j = 0; j < n; j++) {
+        var kume = rnd();
+        var buyuk = kume < 0.043, orta = !buyuk && kume < 0.208;
+        var y = {
+          x: Math.floor(rnd() * sutun) * hg, y: Math.floor(rnd() * satir) * hy,
+          f: aralik(1.2, 4.5), p: aralik(0, 6.28), per: aralik(2.2, 8), faz: rnd(), gen: aralik(0.14, 0.26),
+          guc: buyuk || orta ? 1 : aralik(0.25, 0.95),
+          b: buyuk ? aralik(0.55, 0.95) : orta ? aralik(0.3, 0.65) : Math.pow(aralik(0.1, 0.62), 1.25),
+          h: buyuk ? 5 : orta ? 4 : [0, 0, 0, 2, 3, 4, 1][Math.floor(rnd() * 7)],
+          ton: rnd() < 0.8 ? 0 : 1 + Math.floor(rnd() * 2), g: 0, k: 1
+        };
+        // Videonun içine düşenler atlanır: orada videonun kendi yıldızları var
+        if (y.x + hg > x0 && y.x < x0 + vg && y.y + hy > y0 && y.y < y0 + vy) continue;
+        yildizlar.push(y);
+        if (!buyuk && !orta) continue;
+        var uz = Math.floor(buyuk ? aralik(3, 7) : aralik(2, 5));
+        var yan = Math.floor(uz * 1.8), kosegen = Math.max(1, Math.floor(uz / 2));
+        [[0, 1, 6, yan], [0, -1, 6, yan], [1, 0, 7, uz], [-1, 0, 7, uz],
+         [-1, 1, 8, kosegen], [1, -1, 8, kosegen], [-1, -1, 9, kosegen], [1, 1, 9, kosegen]].forEach(function (o) {
+          for (var i = 1; i <= o[3]; i++) {
+            var dus = Math.pow(1 - i / (o[3] + 1), 1.6);
+            isinlar.push({
+              x: y.x + o[1] * i * hg, y: y.y + o[0] * i * hy, h: o[2], s: y,
+              t: buyuk ? y.b * 0.42 * dus : 0, g: 0.75 * dus
+            });
+          }
+        });
+      }
+    }
+
+    function ciz(ms) {
+      requestAnimationFrame(ciz);
+      if (ms - sonCizim < 32) return; // saniyede 30 kare yeterli
+      sonCizim = ms;
+      var t = ms / 1000, i, y, a;
+      c.clearRect(0, 0, gok.width, gok.height);
+      c.globalCompositeOperation = "lighter";
+      for (i = 0; i < yildizlar.length; i++) {
+        y = yildizlar[i];
+        var faz = (t / y.per + y.faz) % 1;
+        var e = ((faz - 0.5) * y.per) / y.gen;
+        y.g = Math.exp(-e * e) * y.guc;
+        y.k = 0.6 + 0.4 * Math.sin(t * y.f + y.p);
+      }
+      for (i = 0; i < isinlar.length; i++) {
+        var s = isinlar[i];
+        a = s.t * s.s.k + s.g * s.s.g;
+        if (a < 0.035) continue;
+        c.globalAlpha = Math.min(a, 1);
+        c.drawImage(atlas[s.s.ton], s.h * ag, 0, ag, ay, s.x, s.y, ag, ay);
+      }
+      for (i = 0; i < yildizlar.length; i++) {
+        y = yildizlar[i];
+        a = y.b * y.k;
+        a = a + y.g * (1 - a);
+        // Parlarken yıldızın biçimi de büyür: nokta artıya, artı yıldıza döner
+        var h = a > 0.78 ? 5 : a > 0.5 ? Math.max(y.h, 4) : y.h;
+        c.globalAlpha = Math.min(a * 0.96, 1);
+        c.drawImage(atlas[y.ton], h * ag, 0, ag, ay, y.x, y.y, ag, ay);
+        if (y.g > 0.55) {
+          c.globalAlpha = y.g * 0.33;
+          c.drawImage(hale, y.x + ag / 2 - hale.width / 2, y.y + ay / 2 - hale.height / 2);
+        }
+      }
+    }
+
+    var sonCizim = 0;
+    kur();
+    addEventListener("resize", kur);
+    requestAnimationFrame(ciz);
+  })();
 </script>
 </body>
 </html>
